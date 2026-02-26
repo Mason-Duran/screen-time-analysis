@@ -1,0 +1,275 @@
+---
+title: "Today's Social Media Effect"
+author: "Mason Duran"
+output:
+  html_document:
+    fig_width: 8
+    code_folding: hide
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: true
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=8, fig.height=4,
+                      echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+
+# Social Media Use
+
+The following report looks at the relationship between social media use and sleep habits of 500 people in Singapore.
+
+## Platform Engagment
+
+The following box plots show the correlation between a users favorite social media platform and the amount of time they spend on social media in a day. Twitter stands out as the most engaging platform. Its high median and lower whisker indicate that it successfully maintains a high baseline of engagement across the majority of its user base.
+
+In contrast, the plot for Snapchat tells a slightly different story. While its median usage is similar to Twitter's, it exhibits a much larger IQR. This suggests a more polarized user base. In other words, Snapchat has a higher percentage of casual users (lower bottom whisker) but its frequent users are just as deeply engaged as the top-tier Twitter users.
+
+
+
+```{r echo=TRUE}
+library(plotly)
+library(tidyverse)
+library(janitor)
+library(sampling)
+data = read_csv("data/SocialMediaUsage_SleepLatencyAnalysis_Singapore.csv")
+data = data |> clean_names()
+data = as_tibble(data)
+plot_ly(data = data, 
+        x = ~dominant_social_media_platform, 
+        y = ~average_daily_social_media_use_time_minutes, 
+        color = ~dominant_social_media_platform,
+        type = "box") |>
+  layout(
+    title = "Social Media Usage Across Platforms",
+    xaxis = list(title = "Platform"),
+    yaxis = list(title = "Usage (Minutes)")
+  )
+```
+
+## Platform Use and Sleep Deprivation
+The NIH recommends that adults aged 18 and older receive at least 7 hours of sleep per night. Consistently receiving 6 hours or less is categorized as sleep deprivation and is linked to adverse health outcomes. This visualization tallies survey participants who fall below that 6-hour threshold, categorized by their dominant social media platform. Twitter emerges as the most significant outlier, with approximately 31% more sleep-deprived users than the next closest platform, Instagram. These findings, combined with the boxplots above suggest a clear relationship between high-usage platforms and a higher prevalence of sleep deprivation among their users.
+
+
+```{r echo=TRUE}
+data |>
+  filter(total_sleep_time_hours < 6) |> 
+  count(dominant_social_media_platform) |> 
+  plot_ly(
+    x = ~dominant_social_media_platform, 
+    y = ~n, 
+    color = ~dominant_social_media_platform, 
+    type = "bar"
+  ) |>
+  layout(
+    title = "Sleep Deprivation Across Platforms (< 6hrs)",
+    xaxis = list(title = "Social Media Platform"),
+    yaxis = list(title = "Number of Users")
+  )
+```
+
+
+## Social Media Usage Effects on Melatonin
+Melatonin is a hormone produced by the brain that helps promote sleep. Decreased levels of melatonin can disrupt the body's circadian rhythm leading to poor sleep quality and in some cases, insomnia. This plot shows a strong negative correlation between the amount of time users spent on social media and the level of melatonin in their bodies. The R² value of 0.844 suggests the approximately 84% of the variance seen in users' melatonin level can be explained by the time they spend on social media. While melatonin is not the only factor that affects sleep, it makes a strong case that more social media time leads to less healthy sleeping habits.
+
+```{r echo = TRUE}
+
+stats = data |>
+  summarize(
+    r_sq = cor(average_daily_social_media_use_time_minutes, 
+               melatonin_level_pg_m_l)^2
+  )
+
+
+data |>
+  plot_ly(
+    x = ~average_daily_social_media_use_time_minutes, 
+    y = ~melatonin_level_pg_m_l, 
+    type = "scatter", 
+    mode = "markers",
+    marker = list(
+      color = 'darkgreen',
+      size = 7,
+      opacity = 0.7
+    )
+  ) |>
+  layout(
+    title = "Melatonin Levels vs. Social Media Usage",
+    xaxis = list(title = "Social Media Usage (Minutes)"),
+    yaxis = list(title = "Melatonin Level (pg/mL)"),
+    annotations = list(
+      x = 0.7, y = 0.8,
+      text = paste("R2 =", round(stats$r_sq, 3)),
+      showarrow = FALSE,
+      xref = "paper", yref = "paper"
+    )
+  )
+
+
+```
+
+## Scroll Time vs Sleep Time vs Awakenings
+
+After revealing the strong negative correlation between screen time and melatonin levels in the above scatter plot. It became clear there were more insights to be found in this data set. The below pairwise plot examines the relationship between 3 variables:
+
+1) A users daily social media use time
+2) A users total sleep time
+3) The number of times a user reported waking up from sleeping throughout the night
+
+This plot confirms what was revealed earlier. There is a clear negative correlation between screen time and sleep time and a clear positive correlation between screen time and the number of times a user awakes throughout the night.
+Note: The plots showing the number of awakenings per night appear as "rungs" on a ladder because this is a discrete variable meaning there is a set number of values (you cannot wake up 1.5 times in a night only 1,2,3 etc.)
+
+What does this show?
+Essentially, this proves, for users in this population, that the more time they spend on social media not only are they more likely to sleep for less hours but they are also more likely to get less quality sleep as they will be prone to awakenings throughout the night.
+
+```{r echo = TRUE}
+
+fig = data |>
+  select(average_daily_social_media_use_time_minutes,
+         total_sleep_time_hours,
+         number_of_awakenings_during_sleep
+         ) |>
+  plot_ly() |>
+  add_trace(
+    type = 'splom',
+    dimensions = list(
+      list(label = 'Social Media (min)', values = ~average_daily_social_media_use_time_minutes),
+      list(label = 'Sleep (hrs)', values = ~total_sleep_time_hours),
+      list(label = 'Awakenings', values = ~number_of_awakenings_during_sleep)
+    ),
+    marker = list(
+      color = 'darkgreen',
+      size = 5,
+      opacity = 0.6,
+      line = list(width = 1, color = 'white')
+    )
+  ) |>
+  layout(
+    title = "Social Media vs. Sleep Quality",
+    hovermode = 'closest',
+    dragmode = 'select',
+    plot_bgcolor = 'rgba(240,240,240,0.5)'
+  )
+
+fig
+
+```
+
+
+## Sleep Distribution Across the Population
+
+This plot shows the distribution of sleep duration across the individuals in this study. The green solid line is the population mean, the red dashed line at 7 hours marks the threshold for what is considered an adequate amount of sleep. The significant left skew in this population shows just how wide spread the issue of sleep has become, with a staggering 90% of the people in this study falling short of the 7 hour sleep mark.
+
+```{r echo = TRUE}
+
+healthy_sleep = data |>
+  summarize(percent = (sum(total_sleep_time_hours >= 7) / n()) * 100) |>
+  pull(percent)
+
+data |>
+  ggplot(aes(x = total_sleep_time_hours)) +
+  geom_density(fill = "royalblue", alpha = 0.4) +
+  # Using the data directly in the vline for the mean
+  geom_vline(aes(xintercept = mean(total_sleep_time_hours)), 
+             linetype = "solid", color = "green") +
+  geom_vline(xintercept = 7, linetype = "dashed", color = "red") +
+  theme_minimal() +
+  labs(
+    title = "Distribution of Sleep Hours",
+    subtitle = paste0("Only ", round(healthy_sleep, 1), "% of users meet the 7-hour threshold"),
+    x = "Hours of Sleep", 
+    y = "Density"
+  )
+```
+
+
+# Central Limit Theorem
+The Central Limit Theorem states that the distribution of sample means will approach a normal distribution as the sample size increases, regardless of the population's original distribution. While the above plot shows a bimodal distribution of sleep hours in the total population, the four histograms below display increasingly normal sampling distributions. These are the results of 100 independent trials for each sample size (n=10, 20, 30, 40). As predicted, while all distributions center around the true population mean (approximately 5.24 hours), the Standard Error visibly decreases as n increases. This 'narrowing' demonstrates that larger sample sizes provide a more precise and reliable estimate of the population's actual sleep behavior.
+```{r echo = TRUE}
+paste0("Mean of total population: ",mean(data$total_sleep_time_hours))
+
+sample_sizes = c(10,20,30,40)
+
+results = matrix(data = NA, nrow = 100, ncol = length(sample_sizes))
+colnames(results) = paste0("n",sample_sizes)
+
+for (j in 1:length(sample_sizes)) {
+  
+  current_n = sample_sizes[j]
+  
+  for (i in 1:100) {
+    s = srswr(current_n, nrow(data))
+    selected = data$total_sleep_time_hours[data$participant_id%in%rep(data$participant_id,s)]
+    results[i, j] = mean(selected)
+  }
+  
+}
+df = data.frame(results)
+p1 = plot_ly(x = df[[1]], type = 'histogram', name = "n=10")
+p2 = plot_ly(x = df[[2]], type = 'histogram', name = "n=20")
+p3 = plot_ly(x = df[[3]], type = 'histogram', name = "n=30")
+p4 = plot_ly(x = df[[4]], type = 'histogram', name = "n=40")
+subplot(p1, p2, p3, p4, nrows = 2, titleX = TRUE, titleY = TRUE, margin = 0.07) %>%
+  layout(
+    title = "Central Limit Theorem: Narrowing of the Sampling Distribution",
+    xaxis = list(range = c(3, 7)),
+    xaxis2 = list(range = c(3, 7)),
+    xaxis3 = list(range = c(3, 7)),
+    xaxis4 = list(range = c(3, 7))
+  )
+
+```
+
+
+## Sampling Methods
+explain here
+
+```{r echo = TRUE}
+#Total Population
+p1 = plot_ly(data.frame(data), x =~total_sleep_time_hours, 
+             type='histogram', name = 'Total Population')
+
+#Simple random sampling
+set.seed(123)
+s = srswor(100,nrow(data))
+sampled = (rep(data$participant_id,s))
+p2 = plot_ly(data.frame(data[data$participant_id%in%sampled,]), 
+             x =~total_sleep_time_hours, type='histogram',name = 'Simple Random Sampling')
+
+#Stratified sampling grouped on dominant social media platform
+set.seed(123)
+ordered_data = data[order(data$day_of_week),]
+freq = table(ordered_data$day_of_week)
+sizes = round(100*freq/sum(freq))
+sizes = as.vector(sizes)
+groups=sampling::strata(ordered_data,stratanames=c("day_of_week"),
+                        size = sizes, method = "srswor", description = FALSE )
+sampled = sampling::getdata(ordered_data,groups)
+df = data.frame(sampled)
+p3 = plot_ly(data.frame(sampled), x =~total_sleep_time_hours, 
+             type='histogram',name = 'Stratified Sampling')
+
+#Systemic sampling with unequal prob based on age
+set.seed(13)
+pik = inclusionprobabilities(data$total_sleep_time_hours, 100)
+s = UPsystematic(pik)
+sampled = data$total_sleep_time_hours[s!=0]
+p4 = plot_ly(data.frame(sampled), x =~sampled, type='histogram',
+             name = 'Systemic Sampling', xlab="Sleep Time (hours)")
+
+subplot(p1,p2,p3,p4, nrows = 2, margin = 0.07) %>%
+  layout(title = "Sampling Methods",
+         xaxis = list(title = c("Sleep Time (Hours)")),
+         xaxis2 = list(title = c("Sleep Time (Hours)")),
+         xaxis3 = list(title = c("Sleep Time (Hours)")),
+         xaxis4 = list(title = c("Sleep Time (Hours)"))
+         )
+
+```
+
+# Conclusions
+
+Add conclusions about the analysis...
