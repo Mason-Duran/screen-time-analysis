@@ -35,4 +35,6 @@ The project compares different sampling techniques to assess their effectiveness
 ├── data/               # Raw dataset (Social_Media_and_Sleep_Statistics.csv)
 ├── R/                  # R Markdown scripts and code chunks
 ├── results/            # Final interactive report (CS544Final_Duran.html)
-└── requirements.txt    # List of required R packages
+```
+
+To view download results/CS544Final_Duran.html
